@@ -40,8 +40,9 @@ const verdict = async (sid) => (await db.userAnswer.findFirst({ where: { session
   ok(!/isCorrect|explanationMn/.test(JSON.stringify(st)), "Mongolian explanations are not sent during the test");
   const mem = client();
   r = await post(mem, "/api/sessions", { slug: "memory-focus" });
-  const dbMem = await db.question.findMany({ where: { origin: "bank", stimulusMn: { not: null } }, select: { id: true } });
-  ok(dbMem.length === 3, `the 3 word-list memory questions have a Mongolian stimulus (${dbMem.length})`);
+  const dbMem = await db.question.findMany({ where: { origin: "bank", stimulusMn: { not: null } }, select: { bankKey: true } });
+  const wordLists = dbMem.filter((q) => /^memory-0(0\d|1[0-5])$/.test(q.bankKey ?? "")); // the 15 hand-written memory items
+  ok(dbMem.length >= 3 && wordLists.length === 3, `the 3 hand-written word-list memory questions keep a Mongolian stimulus (${wordLists.length} of ${dbMem.length} with one)`);
   const resId = await play(g, "quick-check", 10);
   const html = (await g(`/results/${resId}`)).text;
   ok(/promptMn|explanationMn/.test(html) || /[Ѐ-ӿ]{4}/.test(html), "results review ships the Mongolian text");
@@ -141,8 +142,10 @@ const verdict = async (sid) => (await db.userAnswer.findFirst({ where: { session
   ok(res.status === 400, "a picked question outside the selected categories is rejected");
   res = await post(admin, "/api/admin/assessments", base(`cfg-bad4-${stamp}`, { questionIds: pool.slice(0, 3), questionCount: 6 }));
   ok(res.status === 400 && /servable/.test(res.json.error), "a pool smaller than the question count is rejected");
-  res = await post(admin, "/api/admin/assessments", base(`cfg-bad5-${stamp}`, { difficultyMin: 5, difficultyMax: 5, questionCount: 40 }));
-  ok(res.status === 400, "more questions than the range can supply is rejected");
+  // The bank is large: ask for more than exist at ONE level in these two categories (the form allows at most 60 per test).
+  const atLevel5 = await db.question.count({ where: { active: true, difficulty: 5, category: { slug: { in: ["logical", "numerical"] } } } });
+  res = await post(admin, "/api/admin/assessments", base(`cfg-bad5-${stamp}`, { difficultyMin: 5, difficultyMax: 5, questionCount: 60 }));
+  ok(atLevel5 < 60 && res.status === 400, `more questions than the range can supply is rejected (${atLevel5} at difficulty 5)`);
 
   const hard = await db.assessment.findUnique({ where: { slug: `cfg-hard-${stamp}` } });
   res = await put(admin, `/api/admin/assessments/${hard.id}`, base(`cfg-hard-${stamp}`, { difficultyMin: 3, difficultyMax: 5 }));
