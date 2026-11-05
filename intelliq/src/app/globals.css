@@ -1,0 +1,407 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Design tokens. Dark is the default; light overrides below. */
+:root,
+[data-theme="dark"] {
+  --bg: #080b18;
+  --bg-deep: #0c1124;
+  --card: #121933;
+  --card-glass: rgba(18, 25, 51, 0.6);
+  --border: rgba(255, 255, 255, 0.1);
+  --text: #f8faff;
+  --muted: #a1a9c2;
+  /* Accent palette: electric blue, vibrant violet, cyan, soft lavender, magenta. */
+  --blue: #527bff;
+  --violet: #925cff;
+  --cyan: #39ddf2;
+  --lav: #b9a4ff;
+  --mag: #d66bff;
+  /* Text-safe accents: >= 4.5:1 on the card/background colours of each theme (WCAG AA). */
+  --violet-fg: #b9a4ff;
+  --cyan-fg: #39ddf2;
+  --shadow: 0 18px 50px -22px rgba(0, 0, 0, 0.75);
+  --glow: 0 0 60px -12px rgba(146, 92, 255, 0.55);
+  --hi: rgba(255, 255, 255, 0.08); /* inner top highlight of a surface */
+  --sheen: rgba(255, 255, 255, 0.05); /* top of a panel's gradient */
+  --band: rgba(16, 21, 43, 0.6); /* alternating section band */
+  /* Atmosphere (src/components/Atmosphere.tsx) */
+  --at-base: linear-gradient(180deg, #080b18 0%, #0a0e22 42%, #150f2e 100%);
+  --at-a: rgba(82, 123, 255, 0.34);
+  --at-b: rgba(146, 92, 255, 0.32);
+  --at-c: rgba(214, 107, 255, 0.2);
+  --at-d: rgba(57, 221, 242, 0.15);
+  --at-grid: rgba(255, 255, 255, 0.045);
+  --at-noise: 0.07;
+  --at-noise-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .7 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: #f6f7fb;
+  --bg-deep: #eceff7;
+  --card: #ffffff;
+  --card-glass: rgba(255, 255, 255, 0.75);
+  --border: rgba(15, 23, 42, 0.1);
+  --text: #0b1020;
+  --muted: #55627a;
+  --blue: #2563eb;
+  --violet: #7c3aed;
+  --cyan: #0891b2;
+  --lav: #8b6df0;
+  --mag: #c026d3;
+  --violet-fg: #6d28d9;
+  --cyan-fg: #0e7490;
+  --shadow: 0 14px 36px -16px rgba(15, 23, 42, 0.2);
+  --glow: 0 0 60px -10px rgba(124, 58, 237, 0.28);
+  --hi: rgba(255, 255, 255, 0.9);
+  --sheen: rgba(124, 58, 237, 0.035);
+  --band: rgba(226, 231, 247, 0.6);
+  --at-base: linear-gradient(180deg, #f6f7fb 0%, #eef0fb 55%, #ebe8fb 100%);
+  --at-a: rgba(82, 123, 255, 0.22);
+  --at-b: rgba(146, 92, 255, 0.2);
+  --at-c: rgba(214, 107, 255, 0.14);
+  --at-d: rgba(57, 221, 242, 0.16);
+  --at-grid: rgba(15, 23, 42, 0.05);
+  --at-noise: 0.05;
+  --at-noise-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .7 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-deep: var(--bg-deep);
+  --color-card: var(--card);
+  --color-line: var(--border);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-violet: var(--violet);
+  --color-blue: var(--blue);
+  --color-cyan: var(--cyan);
+  --color-lav: var(--lav);
+  --color-mag: var(--mag);
+  --color-violet-fg: var(--violet-fg);
+  --color-cyan-fg: var(--cyan-fg);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-grotesk), var(--font-inter), sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* The page background is painted by <Atmosphere /> (fixed, behind everything). The colour below is the fallback and is
+   propagated to the canvas, so the atmosphere layer (z-index -1) paints above it. */
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--violet) 45%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Page transition (src/app/template.tsx): an opacity-only fade that replays on every navigation. "backwards" means
+   no animation effect remains afterwards, so the wrapper never creates a stacking context for fixed elements. */
+@keyframes page-in {
+  from { opacity: 0; }
+}
+.page-in {
+  animation: page-in 180ms ease-out backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- Atmosphere: a layered, slowly moving environment ---------- */
+.atmos {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--at-base);
+  contain: layout paint style;
+}
+/* Soft light pools. Radial gradients (not blur filters) keep them cheap; only transforms animate. */
+.atmos-orb {
+  position: absolute;
+  border-radius: 9999px;
+  will-change: transform;
+}
+.atmos-a {
+  width: 72vmax; height: 72vmax; left: -24vmax; top: -30vmax;
+  background: radial-gradient(closest-side, var(--at-a), transparent);
+  animation: orb-a 46s ease-in-out infinite alternate;
+}
+.atmos-b {
+  width: 64vmax; height: 64vmax; right: -22vmax; top: -10vmax;
+  background: radial-gradient(closest-side, var(--at-b), transparent);
+  animation: orb-b 58s ease-in-out infinite alternate;
+}
+.atmos-c {
+  width: 58vmax; height: 58vmax; left: 14vw; bottom: -32vmax;
+  background: radial-gradient(closest-side, var(--at-c), transparent);
+  animation: orb-c 52s ease-in-out infinite alternate;
+}
+.atmos-d {
+  width: 36vmax; height: 36vmax; right: 6vw; bottom: 4vh;
+  background: radial-gradient(closest-side, var(--at-d), transparent);
+  animation: orb-d 40s ease-in-out infinite alternate;
+}
+.atmos-aurora {
+  position: absolute;
+  left: 50%; top: -34vmax;
+  width: 150vmax; height: 100vmax; margin-left: -75vmax;
+  background: conic-gradient(from 200deg at 50% 62%, transparent 0deg, var(--at-d) 55deg, var(--at-b) 115deg, var(--at-c) 165deg, transparent 230deg);
+  -webkit-mask-image: radial-gradient(closest-side, #000 25%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 25%, transparent 100%);
+  opacity: 0.6;
+  will-change: transform;
+  animation: aurora-spin 110s linear infinite;
+}
+.atmos-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--at-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--at-grid) 1px, transparent 1px);
+  background-size: 72px 72px;
+  -webkit-mask-image: radial-gradient(ellipse 85% 62% at 50% 0%, #000 0%, transparent 78%);
+  mask-image: radial-gradient(ellipse 85% 62% at 50% 0%, #000 0%, transparent 78%);
+}
+.atmos-noise {
+  position: absolute;
+  inset: 0;
+  background-image: var(--at-noise-img);
+  background-size: 160px 160px;
+  opacity: var(--at-noise);
+}
+@keyframes orb-a { to { transform: translate3d(9vmax, 7vmax, 0) scale(1.12); } }
+@keyframes orb-b { to { transform: translate3d(-8vmax, 9vmax, 0) scale(0.92); } }
+@keyframes orb-c { to { transform: translate3d(10vmax, -6vmax, 0) scale(1.1); } }
+@keyframes orb-d { to { transform: translate3d(-7vmax, -8vmax, 0) scale(1.18); } }
+@keyframes aurora-spin { to { transform: rotate(360deg); } }
+@media (max-width: 640px) {
+  .atmos-aurora, .atmos-d { display: none; }
+  .atmos-grid { background-size: 48px 48px; }
+}
+
+/* A section that sits on a tinted band instead of the bare atmosphere. The band fades in and out, so no hard edges. */
+.band {
+  background: linear-gradient(180deg, transparent 0, var(--band) 14%, var(--band) 86%, transparent 100%);
+}
+
+/* ---------- Components ---------- */
+@layer components {
+  .glass {
+    background: var(--card-glass);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    backdrop-filter: blur(16px) saturate(150%);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow), inset 0 1px 0 var(--hi);
+  }
+  /* Opaque-ish raised surface used across the app. */
+  .card {
+    background: linear-gradient(165deg, var(--sheen), transparent 45%), var(--card);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    box-shadow: var(--shadow), inset 0 1px 0 var(--hi);
+  }
+  /* The landing page's panel: like .card but meant to sit over the atmosphere. */
+  .panel {
+    position: relative;
+    background: linear-gradient(160deg, var(--sheen), transparent 55%), color-mix(in srgb, var(--card) 88%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 1.25rem;
+    box-shadow: var(--shadow), inset 0 1px 0 var(--hi);
+  }
+  /* Gradient border from --c1 to --c2 (set per element); brightens on hover. */
+  .gb::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, var(--c1, var(--blue)), var(--c2, var(--mag)));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+    opacity: 0.4;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .gb:hover::before, .gb:focus-within::before { opacity: 1; }
+  /* A light that follows the pointer (--mx/--my are set by <Interactions />). */
+  .spot {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s;
+  }
+  .spot::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: radial-gradient(380px circle at var(--mx, 50%) var(--my, 0%), color-mix(in srgb, var(--c1, var(--violet)) 24%, transparent), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .spot:hover::after { opacity: 1; }
+  .spot:hover { transform: translateY(-4px); box-shadow: 0 26px 60px -24px color-mix(in srgb, var(--c1, var(--violet)) 55%, transparent), inset 0 1px 0 var(--hi); }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.8rem;
+    border-radius: 9999px;
+    border: 1px solid var(--border);
+    background: var(--card-glass);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--violet-fg);
+  }
+  .eyebrow::before {
+    content: "";
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, var(--blue), var(--mag));
+    box-shadow: 0 0 10px var(--mag);
+  }
+
+  /* Gradient text. .grad-text = Neural Energy; .grad-text-cog = Cognitive Light; both are AA-safe on their theme. */
+  .grad-text {
+    background: linear-gradient(110deg, var(--blue), var(--violet) 45%, var(--mag) 85%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .grad-text-cog {
+    background: linear-gradient(110deg, var(--cyan), var(--blue) 50%, var(--lav));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .grad-text-flow {
+    background: linear-gradient(100deg, var(--blue), var(--violet) 30%, var(--mag) 55%, var(--cyan) 80%, var(--blue));
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: grad-flow 9s linear infinite;
+  }
+
+  .btn {
+    position: relative;
+    isolation: isolate;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding: 0 1.25rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: transform 0.15s, translate 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s, background-position 0.5s, border-color 0.2s, background-color 0.2s;
+    cursor: pointer;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-lg { min-height: 54px; padding: 0 1.7rem; font-size: 1rem; border-radius: 0.95rem; }
+  /* White text must stay >= 4.5:1: every stop of the gradient is dark enough. */
+  .btn-primary {
+    overflow: hidden;
+    color: #fff;
+    background: linear-gradient(115deg, #3d63f0 0%, #7a3fe0 50%, #b13fd6 100%);
+    background-size: 170% 100%;
+    background-position: 0% 50%;
+    box-shadow: 0 10px 32px -10px rgba(122, 63, 224, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  }
+  .btn-primary::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: radial-gradient(150px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, 0.4), transparent 65%);
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+  .btn-primary:hover {
+    background-position: 100% 50%;
+    box-shadow: 0 14px 46px -8px rgba(214, 107, 255, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.34);
+  }
+  .btn-primary:hover::before { opacity: 1; }
+  .btn-ghost {
+    border: 1px solid var(--border);
+    background: var(--card-glass);
+    box-shadow: inset 0 1px 0 var(--hi);
+  }
+  .btn-ghost:hover {
+    border-color: color-mix(in srgb, var(--violet) 70%, transparent);
+    background-color: color-mix(in srgb, var(--violet) 10%, var(--card-glass));
+  }
+  .input {
+    width: 100%;
+    min-height: 46px;
+    padding: 0 0.9rem;
+    border-radius: 0.75rem;
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .input:focus { border-color: var(--violet); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--violet) 28%, transparent); }
+
+  /* Accordion: animates the row height without measuring (0fr -> 1fr). */
+  .acc-panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .acc-panel[data-open="true"] { grid-template-rows: 1fr; }
+  .acc-panel > div { min-height: 0; overflow: hidden; }
+}
+
+/* ---------- Motion primitives ---------- */
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-14px) rotate(4deg); }
+}
+.float { animation: float 7s ease-in-out infinite; }
+@keyframes twinkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.7); }
+  50% { opacity: 0.95; transform: scale(1.25); }
+}
+.twinkle { animation: twinkle 4.5s ease-in-out infinite; }
+@keyframes flow { to { stroke-dashoffset: -48; } }
+.flow { stroke-dasharray: 3 9; animation: flow 3.2s linear infinite; }
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+.spin-cw { transform-origin: 50% 50%; animation: spin-slow 120s linear infinite; }
+.spin-ccw { transform-origin: 50% 50%; animation: spin-slow 160s linear infinite reverse; }
+@keyframes grad-flow { to { background-position: -220% 0; } }
+@keyframes travel { from { left: 0; } to { left: 100%; } }
+@keyframes pulse-ring {
+  0% { transform: scale(0.85); opacity: 0.6; }
+  100% { transform: scale(1.6); opacity: 0; }
+}

@@ -1,0 +1,369 @@
+// INTELLIQ schema. SQLite for local dev; to move to PostgreSQL change `provider`
+// to "postgresql", set DATABASE_URL, and re-run `prisma migrate dev`.
+// Enum-like and JSON-like columns are plain strings so the schema is portable.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id    String @id @default(cuid())
+  name  String @unique // USER | ADMIN
+  users User[]
+}
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String
+  passwordHash      String
+  roleId            String
+  role              Role      @relation(fields: [roleId], references: [id])
+  imageUrl          String?
+  emailVerifiedAt   DateTime?
+  verifyToken       String?   @unique
+  resetTokenHash    String?
+  resetTokenExpiry  DateTime?
+  xp                Int       @default(0)
+  publicProfile     Boolean   @default(false) // profile cards are opt-in
+  showOnLeaderboard Boolean   @default(false) // rankings are opt-in
+  disabledAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  preferences   UserPreference?
+  streak        UserStreak?
+  sessions      AssessmentSession[]
+  results       AssessmentResult[]
+  achievements  UserAchievement[]
+  xpEvents      XPTransaction[]
+  attempts      ChallengeAttempt[]
+  reports       Report[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  bookmarks     Bookmark[]
+
+  @@index([roleId])
+}
+
+model UserPreference {
+  id       String @id @default(cuid())
+  userId   String @unique
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme    String @default("dark") // dark | light
+  language String @default("en") // en | mn
+}
+
+model Category {
+  id              String           @id @default(cuid())
+  slug            String           @unique
+  nameEn          String
+  nameMn          String
+  descEn          String
+  descMn          String
+  questions       Question[]
+  categoryResults CategoryResult[]
+}
+
+model Question {
+  id            String   @id @default(cuid())
+  categoryId    String
+  category      Category @relation(fields: [categoryId], references: [id])
+  prompt        String
+  promptMn      String?
+  kind          String   @default("text") // text | figure | image
+  assetUrl      String? // uploaded image (kind=image)
+  figure        String? // JSON figure spec for the stem (kind=figure), see src/lib/figures.ts
+  stimulus      String? // JSON {text?, fig?} shown briefly then hidden (memory items)
+  stimulusSec   Int?
+  explanationMn String?
+  stimulusMn    String? // Mongolian text for memory stimuli (word lists)
+  bankKey       String?  @unique // stable id of seeded/generated questions, e.g. numerical-001, daily-2026-10-31-logical
+  origin        String   @default("bank") // bank | admin | daily
+  difficulty    Int      @default(3) // 1 (easy) .. 5 (hard)
+  explanation   String
+  timeLimitSec  Int?
+  version       Int      @default(1)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  options             QuestionOption[]
+  assessmentQuestions AssessmentQuestion[]
+  answers             UserAnswer[]
+  versions            QuestionVersion[]
+
+  @@index([categoryId, difficulty, active])
+}
+
+model QuestionOption {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  label      String
+  labelMn    String?
+  assetUrl   String?
+  figure     String? // JSON figure spec
+  isCorrect  Boolean  @default(false) // never serialised to clients during a test
+  position   Int
+
+  @@unique([questionId, position])
+}
+
+model Assessment {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  titleEn         String
+  titleMn         String
+  descEn          String
+  descMn          String
+  questionCount   Int      @default(20)
+  durationSec     Int?
+  adaptive        Boolean  @default(true)
+  difficultyMin   Int      @default(1)
+  difficultyMax   Int      @default(5)
+  categoryWeights String   @default("{}") // JSON {categorySlug: weight}; empty = equal share
+  categorySlugs   String // comma-separated; empty = all categories
+  version         Int      @default(1)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  questions AssessmentQuestion[]
+  sessions  AssessmentSession[]
+  bookmarks Bookmark[]
+}
+
+model AssessmentQuestion {
+  id           String     @id @default(cuid())
+  assessmentId String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     Question   @relation(fields: [questionId], references: [id])
+  position     Int
+
+  @@unique([assessmentId, questionId])
+}
+
+model AssessmentSession {
+  id           String     @id @default(cuid())
+  assessmentId String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id])
+  userId       String? // null for guest sessions
+  user         User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  guestToken   String? // per-browser guest id (cookie); a guest may hold several sessions
+  status       String     @default("IN_PROGRESS") // IN_PROGRESS | SUBMITTED | ABANDONED
+  adaptState   String     @default("{}") // JSON {categorySlug:{d,s}} staircase state, see src/lib/engine.ts
+  startedAt    DateTime   @default(now())
+  submittedAt  DateTime?
+  lastSavedAt  DateTime   @default(now())
+
+  answers UserAnswer[]
+  result  AssessmentResult?
+
+  @@index([userId, status])
+  @@index([guestToken, status])
+}
+
+model UserAnswer {
+  id             String            @id @default(cuid())
+  sessionId      String
+  session        AssessmentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  position       Int
+  questionId     String
+  question       Question          @relation(fields: [questionId], references: [id])
+  optionId       String? // null = cleared / unanswered
+  resolved       Boolean           @default(false) // first answer or skip; drives adaptive routing exactly once
+  servedAt       DateTime          @default(now())
+  stimulusSeenAt DateTime?
+  isCorrect      Boolean?
+  difficulty     Int
+  timeMs         Int               @default(0)
+  flagged        Boolean           @default(false)
+  answeredAt     DateTime          @default(now())
+
+  @@unique([sessionId, questionId])
+  @@unique([sessionId, position])
+}
+
+model AssessmentResult {
+  id                String            @id @default(cuid())
+  sessionId         String            @unique
+  session           AssessmentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId            String?
+  user              User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  reportCode        String            @unique
+  total             Int
+  correct           Int
+  incorrect         Int
+  unanswered        Int
+  accuracy          Float
+  performanceScore  Float // 0-100 difficulty-adjusted
+  durationSec       Int
+  scoringVersion    Int               @default(1)
+  assessmentVersion Int               @default(1) // Assessment.version when taken; rankings compare equal versions only
+  aiInsight         String? // JSON {en?:string, mn?:string}; only set when the user requests AI feedback
+  createdAt         DateTime          @default(now())
+
+  categories CategoryResult[]
+  report     Report?
+
+  @@index([userId, createdAt])
+}
+
+model CategoryResult {
+  id          String           @id @default(cuid())
+  resultId    String
+  result      AssessmentResult @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  categoryId  String
+  category    Category         @relation(fields: [categoryId], references: [id])
+  total       Int
+  correct     Int
+  performance Float // 0-100 difficulty-adjusted
+
+  @@unique([resultId, categoryId])
+}
+
+model Achievement {
+  id       String            @id @default(cuid())
+  code     String            @unique
+  nameEn   String
+  nameMn   String
+  descEn   String
+  descMn   String
+  xpReward Int               @default(50)
+  users    UserAchievement[]
+}
+
+model UserAchievement {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+  unlockedAt    DateTime    @default(now())
+  resultId      String? // result or challenge attempt that unlocked it
+
+  @@unique([userId, achievementId])
+}
+
+model XPTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int
+  reason    String
+  refId     String?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, reason, refId])
+  @@index([userId, createdAt])
+}
+
+model DailyChallenge {
+  id          String             @id @default(cuid())
+  date        String             @unique // YYYY-MM-DD (UTC)
+  questionIds String // comma-separated
+  attempts    ChallengeAttempt[]
+}
+
+model ChallengeAttempt {
+  id          String         @id @default(cuid())
+  challengeId String
+  challenge   DailyChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  correct     Int
+  total       Int
+  xpAwarded   Int            @default(0)
+  detail      String? // JSON {questionId: {optionId, correct}}
+  createdAt   DateTime       @default(now())
+
+  @@unique([challengeId, userId])
+}
+
+model UserStreak {
+  id             String  @id @default(cuid())
+  userId         String  @unique
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  current        Int     @default(0)
+  longest        Int     @default(0)
+  lastActiveDate String? // YYYY-MM-DD (UTC)
+}
+
+model Report {
+  id         String           @id @default(cuid())
+  resultId   String           @unique
+  result     AssessmentResult @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  shareToken String?          @unique
+  createdAt  DateTime         @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action    String
+  target    String?
+  meta      String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Setting {
+  key   String @id
+  value String
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  titleMn   String? // Mongolian text; the English text above is the fallback
+  bodyMn    String?
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Bookmark {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assessmentId String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([userId, assessmentId])
+}
+
+model QuestionVersion {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  version    Int
+  snapshot   String // JSON of the question and options as they were
+  authorId   String?
+  createdAt  DateTime @default(now())
+
+  @@unique([questionId, version])
+}

@@ -1,0 +1,8 @@
+# Keep line endings identical on every machine. Prisma checksums migration files, so a CRLF checkout on Windows would
+# differ from the LF files on Vercel/Linux and `prisma migrate deploy` would report a modified migration.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
